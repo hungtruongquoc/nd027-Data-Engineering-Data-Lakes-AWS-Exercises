@@ -6,7 +6,9 @@ from awsglue.utils import getResolvedOptions
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, lower, trim  # Ensure functions are imported correctly
+
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 sc = SparkContext()

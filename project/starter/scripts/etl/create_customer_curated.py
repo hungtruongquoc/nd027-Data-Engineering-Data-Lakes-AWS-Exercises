@@ -45,7 +45,7 @@ curated_customers = DynamicFrame.fromDF(df_distinct, glueContext, "curated_custo
 glueContext.write_dynamic_frame.from_options(
     frame = curated_customers,
     connection_type = "s3",
-    connection_options = {"path": "s3://udacity-stedi/customer/curated/"},
+    connection_options = {"path": "s3://udacity-stedi/customer/curated/", "mode": "overwrite"},
     format = "parquet"
 )
 

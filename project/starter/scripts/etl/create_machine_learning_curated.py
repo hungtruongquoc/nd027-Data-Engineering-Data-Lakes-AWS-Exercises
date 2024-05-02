@@ -1,11 +1,16 @@
 import sys
-from awsglue.context import GlueContext
-from pyspark.context import SparkContext
+from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
 from awsglue.job import Job
-from awsglue.dynamicframe import DynamicFrame
-from pyspark.sql.functions import col
+from awsglue import DynamicFrame
 
+def sparkSqlQuery(glueContext, query, mapping, transformation_ctx) -> DynamicFrame:
+    for alias, frame in mapping.items():
+        frame.toDF().createOrReplaceTempView(alias)
+    result = spark.sql(query)
+    return DynamicFrame.fromDF(result, glueContext, transformation_ctx)
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -13,50 +18,24 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-# Load data from the Trusted Zone tables
-step_trainer_trusted = glueContext.create_dynamic_frame.from_catalog(
-    database = "stedi",
-    table_name = "step_trainer_trusted",
-    transformation_ctx = "step_trainer_trusted"
-)
+# Script generated for node accelerometer
+accelerometer_node1714634234592 = glueContext.create_dynamic_frame.from_catalog(database="stedi", table_name="accelerometer_trusted", transformation_ctx="accelerometer_node1714634234592")
 
-accelerometer_trusted = glueContext.create_dynamic_frame.from_catalog(
-    database = "stedi",
-    table_name = "accelerometer_trusted",
-    transformation_ctx = "accelerometer_trusted"
-)
+# Script generated for node customer
+customer_node1714634526092 = glueContext.create_dynamic_frame.from_catalog(database="stedi", table_name="customer_curated", transformation_ctx="customer_node1714634526092")
 
-# Convert to DataFrames
-df_step_trainer = step_trainer_trusted.toDF()
-df_accelerometer = accelerometer_trusted.toDF()
+# Script generated for node step_trainer
+step_trainer_node1714634190294 = glueContext.create_dynamic_frame.from_catalog(database="stedi", table_name="step_trainer_trusted", transformation_ctx="step_trainer_node1714634190294")
 
-# Join on serialNumber and timestamp
-df_joined = df_step_trainer.join(df_accelerometer, (df_step_trainer.serialNumber == df_accelerometer.serialNumber) &
-                                 (df_step_trainer.sensorReadingTime == df_accelerometer.timeStamp))
+# Script generated for node SQL Query
+SqlQuery0 = '''
+select * from s inner join a on s.sensorReadingTime = a.timestamp 
+inner join cus on cus.email = a.user 
+where cus.sharewithresearchasofdate is not null
+'''
+SQLQuery_node1714634257976 = sparkSqlQuery(glueContext, query = SqlQuery0, mapping = {"s":step_trainer_node1714634190294, "a":accelerometer_node1714634234592, "cus":customer_node1714634526092}, transformation_ctx = "SQLQuery_node1714634257976")
 
-# Select required fields and perform any necessary transformations/aggregations
-df_ml_curated = df_joined.select(
-    df_step_trainer.serialNumber,
-    df_step_trainer.sensorReadingTime,
-    df_step_trainer.distanceFromObject,
-    df_accelerometer.x,
-    df_accelerometer.y,
-    df_accelerometer.z
-).distinct()
-
-# Convert back to DynamicFrame
-ml_curated_dynamic_frame = DynamicFrame.fromDF(df_ml_curated, glueContext, "ml_curated_dynamic_frame")
-
-# Write the data back to S3 with overwrite mode
-sink = glueContext.write_dynamic_frame.from_options(
-    frame = ml_curated_dynamic_frame,
-    connection_type = "s3",
-    connection_options = {
-        "path": "s3://udacity-stedi/machine_learning/curated/",
-        "mode": "overwrite"
-    },
-    format = "parquet",
-    transformation_ctx = "sink"
-)
+# Script generated for node Amazon S3
+AmazonS3_node1714634692095 = glueContext.write_dynamic_frame.from_options(frame=SQLQuery_node1714634257976, connection_type="s3", format="glueparquet", connection_options={"path": "s3://udacity-stedi/machine_learning/curated/", "partitionKeys": []}, format_options={"compression": "snappy"}, transformation_ctx="AmazonS3_node1714634692095")
 
 job.commit()
